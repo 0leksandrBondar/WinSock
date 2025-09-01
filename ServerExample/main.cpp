@@ -1,7 +1,6 @@
 #include "server.h"
 #include "wsadata.h"
 
-#include <iostream>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -41,7 +40,6 @@ void receiveMessage(std::vector<SOCKET>& connectedClients, bond::tcp::Server& se
                     {
                         if (!server.receiveMessage(*it, data))
                         {
-                            std::cout << "Client disconnected\n";
                             closesocket(*it);
                             it = connectedClients.erase(it);
                         }

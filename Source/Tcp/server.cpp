@@ -1,5 +1,4 @@
 #include "server.h"
-#include <iostream>
 
 namespace bond
 {
@@ -44,11 +43,6 @@ namespace bond
             if (bytesReceived > 0)
             {
                 buffer[bytesReceived] = '\0';
-
-                for (auto sym : buffer)
-                {
-                    std::cout << sym;
-                }
                 buffer.clear();
                 return true;
             }
