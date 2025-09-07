@@ -1,53 +1,41 @@
 #include "server.h"
 
+#include <stdexcept>
+
 namespace bond
 {
-    namespace tcp
+    namespace network
     {
-
-        Server::Server(AddressFamily family, short port)
-            : _listenSocket(), _listenAddr(family, port)
+        SocketTCPServer::SocketTCPServer(AddressFamily addrFamily)
+            : Socket(addrFamily, SocketType::TCP, Protocol::TCP)
         {
         }
 
-        bool Server::bind()
+        bool SocketTCPServer::bind(SocketAddress& address)
         {
-            return ::bind(_listenSocket.getSocket(), _listenAddr.getSockAddr(),
-                          _listenAddr.getSize())
-                   != SOCKET_ERROR;
+            if (::bind(_socket, address.getSockAddr(), address.getSize()) == SOCKET_ERROR)
+                return false;
+
+            return true;
         }
 
-        bool Server::listen()
+        bool SocketTCPServer::listen(int backlog)
         {
-            return ::listen(_listenSocket.getSocket(), SOMAXCONN) != SOCKET_ERROR;
+            if (::listen(_socket, backlog) == SOCKET_ERROR)
+                return false;
+
+            return true;
         }
 
-        SOCKET Server::acceptClient()
+        SocketTCP SocketTCPServer::accept()
         {
-            sockaddr_in clientAddr;
-            int clientSize = sizeof(clientAddr);
+            SOCKET clientSock = ::accept(_socket, nullptr, nullptr);
+            if (clientSock == INVALID_SOCKET)
+                throw std::runtime_error("accept failed");
 
-            SOCKET clientSocket
-                = ::accept(_listenSocket.getSocket(), (sockaddr*)&clientAddr, &clientSize);
-
-            if (clientSocket == INVALID_SOCKET)
-                return INVALID_SOCKET;
-
-            return clientSocket;
+            SocketTCP client(AddressFamily::IPv4);
+            client.setSocket(clientSock);
+            return client;
         }
-
-        bool Server::receiveMessage(SOCKET clientSocket, std::vector<char>& buffer)
-        {
-            int bytesReceived = ::recv(clientSocket, buffer.data(), sizeof(buffer) - 1, 0);
-
-            if (bytesReceived > 0)
-            {
-                buffer[bytesReceived] = '\0';
-                buffer.clear();
-                return true;
-            }
-            return false;
-        }
-    } // namespace tcp
-
+    } // namespace network
 } // namespace bond

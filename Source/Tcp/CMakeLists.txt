@@ -11,6 +11,7 @@ add_library(TCP ${SOURCE})
 
 target_link_libraries(TCP PUBLIC
     Common
+    spdlog
 )
 
 target_include_directories(TCP PUBLIC ./)

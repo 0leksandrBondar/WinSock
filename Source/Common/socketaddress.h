@@ -6,36 +6,40 @@
 
 namespace bond
 {
-    enum class AddressFamily
+    namespace network
     {
-        IPv4 = AF_INET,
-        IPv6 = AF_INET6,
-    };
 
-    enum class Protocol
-    {
-        TCP = IPPROTO_TCP,
-        UDP = IPPROTO_UDP,
-    };
+        enum class AddressFamily
+        {
+            IPv4 = AF_INET,
+            IPv6 = AF_INET6,
+        };
 
-    enum class SocketType
-    {
-        TCP = SOCK_STREAM,
-        UDP = SOCK_DGRAM,
-    };
+        enum class Protocol
+        {
+            TCP = IPPROTO_TCP,
+            UDP = IPPROTO_UDP,
+        };
 
-    class SocketAddress
-    {
-    public:
-        SocketAddress(AddressFamily addrFamily, short port);
-        SocketAddress(AddressFamily addrFamily, short port, const std::string& ipAddress);
+        enum class SocketType
+        {
+            TCP = SOCK_STREAM,
+            UDP = SOCK_DGRAM,
+        };
 
-        socklen_t getSize() const { return sizeof(sockaddr_in); }
-        sockaddr_in& getSockAddress() { return _sockAddrIn; }
-        sockaddr* getSockAddr() { return reinterpret_cast<sockaddr*>(&_sockAddrIn); }
+        class SocketAddress
+        {
+        public:
+            SocketAddress(AddressFamily addrFamily, short port);
+            SocketAddress(AddressFamily addrFamily, short port, const std::string& ipAddress);
 
-    private:
-        sockaddr_in _sockAddrIn{};
-    };
+            socklen_t getSize() const { return sizeof(sockaddr_in); }
+            sockaddr_in& getSockAddress() { return _sockAddrIn; }
+            sockaddr* getSockAddr() { return reinterpret_cast<sockaddr*>(&_sockAddrIn); }
 
+        private:
+            sockaddr_in _sockAddrIn{};
+        };
+
+    } // namespace network
 } // namespace bond

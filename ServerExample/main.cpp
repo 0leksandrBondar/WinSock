@@ -1,77 +1,87 @@
+#include "Common/message.h"
+#include "Common/wsadata.h"
 #include "server.h"
-#include "wsadata.h"
 
-#include <mutex>
-#include <thread>
-#include <vector>
+#include "spdlog/spdlog.h"
 
-std::mutex clientsMutex;
-
-void acceptClientsTaks(std::vector<SOCKET>& conteiner, bond::tcp::Server& server)
+bond::network::Message recvMessage(bond::network::SocketTCP& client)
 {
-    std::thread(
-        [&]()
-        {
-            while (true)
-            {
-                SOCKET newSock = server.acceptClient();
-                if (newSock != INVALID_SOCKET)
-                {
-                    std::lock_guard<std::mutex> lock(clientsMutex);
-                    conteiner.push_back(newSock);
-                }
-            }
-        })
-        .detach();
-}
+    // 1. read header
+    bond::network::Header header{};
+    size_t received = 0;
+    char* headerPtr = reinterpret_cast<char*>(&header);
 
-void receiveMessage(std::vector<SOCKET>& connectedClients, bond::tcp::Server& server)
-{
-    std::thread(
-        [&]()
-        {
-            std::vector<char> data(4096);
-            while (true)
-            {
-                {
-                    std::lock_guard<std::mutex> lock(clientsMutex);
+    while (received < sizeof(header))
+    {
+        int ret = ::recv(client.getSocket(), headerPtr + received,
+                         static_cast<int>(sizeof(header) - received), 0);
+        if (ret <= 0)
+            throw std::runtime_error("Failed to receive header");
+        received += ret;
+    }
 
-                    for (auto it = connectedClients.begin(); it != connectedClients.end();)
-                    {
-                        if (!server.receiveMessage(*it, data))
-                        {
-                            closesocket(*it);
-                            it = connectedClients.erase(it);
-                        }
-                        else
-                        {
-                            ++it;
-                        }
-                    }
-                }
+    std::string type(header.messageType, strnlen(header.messageType, sizeof(header.messageType)));
+    spdlog::info("Header received: type={} totalSize={} totalPackets={}", type, header.totalSize,
+                 header.totalPackets);
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
-        })
-        .detach();
+    // 2. read body
+    std::vector<char> body(header.totalSize);
+    size_t totalReceived = 0;
+
+    while (totalReceived < header.totalSize)
+    {
+        int ret = ::recv(client.getSocket(), body.data() + totalReceived,
+                         static_cast<int>(header.totalSize - totalReceived), 0);
+        if (ret <= 0)
+            throw std::runtime_error("Failed to receive body");
+        totalReceived += ret;
+    }
+
+    return bond::network::Message(type, body, header.packetSize);
 }
 
 int main()
 {
-    bond::WsaData data;
-    data.startup();
+    bond::network::WsaData wsaData;
+    wsaData.startup();
 
-    std::vector<SOCKET> _clients;
+    bond::network::SocketTCPServer server(bond::network::AddressFamily::IPv4);
+    bond::network::SocketAddress addr(bond::network::AddressFamily::IPv4, 12345, "0.0.0.0");
 
-    bond::tcp::Server serverSocket(bond::AddressFamily::IPv4, 12345);
-    serverSocket.bind();
-    serverSocket.listen();
+    if (!server.bind(addr))
+    {
+        spdlog::error("Bind failed");
+        return -1;
+    }
 
-    acceptClientsTaks(_clients, serverSocket);
-    receiveMessage(_clients, serverSocket);
+    if (!server.listen())
+    {
+        spdlog::error("Listen failed");
+        return -1;
+    }
+
+    spdlog::info("Server is listening on port 12345...");
 
     while (true)
     {
+        try
+        {
+            auto client = server.accept();
+            spdlog::info("New client connected!");
+
+            auto message = recvMessage(client);
+
+            std::string text(message.body().begin(), message.body().end());
+            spdlog::info("Received body: {}", text);
+
+            // 3. Отправка ответа
+            const std::string reply = "Hello from server!";
+            client.send(std::vector<char>(reply.begin(), reply.end()));
+        }
+        catch (const std::exception& e)
+        {
+            spdlog::error("Error: {}", e.what());
+        }
     }
 
     return 0;

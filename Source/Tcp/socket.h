@@ -1,28 +1,20 @@
-#pragma once
-
-#include "socketaddress.h"
+#include "Common/message.h"
+#include "Common/socket.h"
 
 namespace bond
 {
-
-    namespace tcp
+    namespace network
     {
-        class Socket
+        class SocketTCP final : public Socket
         {
         public:
-            Socket(bond::AddressFamily addrFamily = AddressFamily::IPv4);
-            ~Socket() { closesocket(_socket); }
+            SocketTCP(AddressFamily addrFamily);
 
-            bool conncetBySockAddr(SocketAddress& sockAddress);
+            size_t recv(std::vector<char>& data) override;
 
-            bool send(const char* data);
-
-            [[nodiscard]] SOCKET& getSocket() { return _socket; }
-
-        private:
-            SOCKET _socket{ INVALID_SOCKET };
-            bond::AddressFamily _addressFamily;
+            bool send(const Message& message);
+            void send(const std::string& data);
+            void send(const std::vector<char>& data) override;
         };
-
-    } // namespace tcp
+    } // namespace network
 } // namespace bond

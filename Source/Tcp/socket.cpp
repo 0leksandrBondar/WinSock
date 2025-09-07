@@ -1,33 +1,86 @@
 #include "socket.h"
 
+#include <stdexcept>
+
 namespace bond
 {
-    namespace tcp
+    namespace network
     {
 
-        Socket::Socket(AddressFamily addrFamily) : _addressFamily{ addrFamily }
+        SocketTCP::SocketTCP(AddressFamily addrFamily)
+            : Socket(addrFamily, SocketType::TCP, Protocol::TCP)
         {
-            _socket = socket(static_cast<int>(_addressFamily), static_cast<int>(SocketType::TCP),
-                             static_cast<int>(Protocol::TCP));
         }
 
-        bool Socket::conncetBySockAddr(SocketAddress& sockAddress)
+        size_t SocketTCP::recv(std::vector<char>& data)
         {
-            if (::connect(_socket, sockAddress.getSockAddr(), sockAddress.getSize())
-                == SOCKET_ERROR)
-                return false;
+            size_t received = ::recv(_socket, data.data(), static_cast<int>(data.size()), 0);
+
+            if (received == 0)
+                return 0;
+            else if (received == SOCKET_ERROR)
+            {
+                int err = WSAGetLastError();
+                throw std::runtime_error("recv failed with error: " + std::to_string(err));
+            }
+
+            return received;
+        }
+
+        bool SocketTCP::send(const Message& message)
+        {
+            const char* headerPtr = reinterpret_cast<const char*>(&message.header());
+            int headerSize = sizeof(Header);
+
+            int sent = ::send(_socket, headerPtr, headerSize, 0);
+            if (sent == SOCKET_ERROR || sent != headerSize)
+            {
+                int err = WSAGetLastError();
+                throw std::runtime_error("send header failed: " + std::to_string(err));
+            }
+
+            const auto& body = message.body();
+            for (uint32_t i = 0; i < message.header().totalPackets; ++i)
+            {
+                size_t offset = i * message.header().packetSize;
+                size_t size = std::min<size_t>(message.header().packetSize, body.size() - offset);
+
+                int bodySent = ::send(_socket, body.data() + offset, static_cast<int>(size), 0);
+                if (bodySent == SOCKET_ERROR || bodySent != size)
+                {
+                    int err = WSAGetLastError();
+                    throw std::runtime_error("send body failed: " + std::to_string(err));
+                }
+            }
 
             return true;
         }
 
-        bool Socket::send(const char* data)
+        void SocketTCP::send(const std::string& data)
         {
-            if (::send(_socket, data, strlen(data), 0) == SOCKET_ERROR)
-                return -1;
-
-            return true;
+            std::vector<char> buffer(data.begin(), data.end());
+            send(buffer);
         }
 
-    } // namespace tcp
+        void SocketTCP::send(const std::vector<char>& data)
+        {
+            size_t totalSent = 0;
+            const size_t dataSize = data.size();
+            while (totalSent < dataSize)
+            {
+                const int sent = ::send(_socket, data.data() + totalSent,
+                                        static_cast<int>(dataSize - totalSent), 0);
+
+                if (sent == SOCKET_ERROR)
+                {
+                    int err = WSAGetLastError();
+                    throw std::runtime_error("send failed with error: " + std::to_string(err));
+                }
+
+                totalSent += sent;
+            }
+        }
+
+    } // namespace network
 
 } // namespace bond

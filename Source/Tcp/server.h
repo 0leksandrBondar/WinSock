@@ -1,31 +1,27 @@
 #pragma once
 
+#include "Common/socket.h"
 #include "socket.h"
-
-#include <vector>
 
 namespace bond
 {
-    namespace tcp
+    namespace network
     {
-
-        class Server
+        class SocketTCPServer final : public Socket
         {
         public:
-            Server(AddressFamily family, short port);
+            SocketTCPServer(AddressFamily addrFamily);
 
-            bool bind();
-            bool listen();
-            bool receive();
-            bool receiveMessage(SOCKET clientSocket, std::vector<char>& buffer);
+            bool bind(SocketAddress &address);
+            bool listen(int backlog = SOMAXCONN);
+            SocketTCP accept();
 
-            SOCKET acceptClient();
+            void send(const std::vector<char>& data) override { /* сервер напрямую не шлёт */ }
 
-        private:
-            SocketAddress _listenAddr;
-            bond::tcp::Socket _listenSocket;
+            size_t recv(std::vector<char>& data) override
+            {
+                return 0; /* сервер напрямую не читает */
+            }
         };
-
-    } // namespace tcp
-
+    } // namespace network
 } // namespace bond

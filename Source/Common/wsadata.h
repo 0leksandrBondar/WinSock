@@ -4,16 +4,19 @@
 
 namespace bond
 {
-    class WsaData
+    namespace network
     {
-    public:
-        WsaData() = default;
-        ~WsaData() { cleanup(); }
+        class WsaData
+        {
+        public:
+            WsaData() = default;
+            ~WsaData() { cleanup(); }
 
-        bool startup();
-        bool cleanup();
+            bool startup();
+            bool cleanup();
 
-    private:
-        WSADATA _wsaData;
-    };
+        private:
+            WSADATA _wsaData;
+        };
+    } // namespace network
 } // namespace bond

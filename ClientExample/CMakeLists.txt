@@ -8,5 +8,6 @@ add_executable(ClientExample ${SOURCE})
 
 target_link_libraries(ClientExample PUBLIC
         Common
+        spdlog
         TCP
 )
